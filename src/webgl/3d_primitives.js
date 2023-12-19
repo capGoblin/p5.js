@@ -9,6 +9,12 @@
 import p5 from '../core/main';
 import './p5.Geometry';
 import * as constants from '../core/constants';
+import {
+  generateKey,
+  primitiveShapeCreators,
+  shape,
+  modifyShape, getShape
+} from '../core/shape/vertex';
 
 /**
  * Starts creating a new p5.Geometry. Subsequent shapes drawn will be added
@@ -1736,8 +1742,8 @@ p5.RendererGL.prototype.line = function(...args) {
 };
 
 p5.RendererGL.prototype.bezierVertex = function(...args) {
-  if (this.immediateMode._bezierVertex.length === 0) {
-    throw Error('vertex() must be used once before calling bezierVertex()');
+  if (this.immediateMode._bezierVertex.length !== 0) {
+    // throw Error('vertex() must be used once before calling bezierVertex()');
   } else {
     let w_x = [];
     let w_y = [];
@@ -1773,393 +1779,451 @@ p5.RendererGL.prototype.bezierVertex = function(...args) {
       }
     }
 
-    const LUTLength = this._lookUpTableBezier.length;
 
-    // fillColors[0]: start point color
-    // fillColors[1],[2]: control point color
-    // fillColors[3]: end point color
-    const fillColors = [];
-    for (m = 0; m < 4; m++) fillColors.push([]);
-    fillColors[0] = this.immediateMode.geometry.vertexColors.slice(-4);
-    fillColors[3] = this.curFillColor.slice();
+    let keyObject = generateKey('bezierVertex', null);
 
-    // Do the same for strokeColor.
-    const strokeColors = [];
-    for (m = 0; m < 4; m++) strokeColors.push([]);
-    strokeColors[0] = this.immediateMode.geometry.vertexStrokeColors.slice(-4);
-    strokeColors[3] = this.curStrokeColor.slice();
 
-    if (argLength === 6) {
-      this.isBezier = true;
+    let primitiveShapeCreator = primitiveShapeCreators.get(keyObject);
 
-      w_x = [this.immediateMode._bezierVertex[0], args[0], args[2], args[4]];
-      w_y = [this.immediateMode._bezierVertex[1], args[1], args[3], args[5]];
-      // The ratio of the distance between the start point, the two control-
-      // points, and the end point determines the intermediate color.
-      let d0 = Math.hypot(w_x[0]-w_x[1], w_y[0]-w_y[1]);
-      let d1 = Math.hypot(w_x[1]-w_x[2], w_y[1]-w_y[2]);
-      let d2 = Math.hypot(w_x[2]-w_x[3], w_y[2]-w_y[3]);
-      const totalLength = d0 + d1 + d2;
-      d0 /= totalLength;
-      d2 /= totalLength;
-      for (k = 0; k < 4; k++) {
-        fillColors[1].push(
-          fillColors[0][k] * (1-d0) + fillColors[3][k] * d0
-        );
-        fillColors[2].push(
-          fillColors[0][k] * d2 + fillColors[3][k] * (1-d2)
-        );
-        strokeColors[1].push(
-          strokeColors[0][k] * (1-d0) + strokeColors[3][k] * d0
-        );
-        strokeColors[2].push(
-          strokeColors[0][k] * d2 + strokeColors[3][k] * (1-d2)
-        );
-      }
 
-      for (i = 0; i < LUTLength; i++) {
-        // Interpolate colors using control points
-        this.curFillColor = [0, 0, 0, 0];
-        this.curStrokeColor = [0, 0, 0, 0];
-        _x = _y = 0;
-        for (m = 0; m < 4; m++) {
-          for (k = 0; k < 4; k++) {
-            this.curFillColor[k] +=
-              this._lookUpTableBezier[i][m] * fillColors[m][k];
-            this.curStrokeColor[k] +=
-              this._lookUpTableBezier[i][m] * strokeColors[m][k];
-          }
-          _x += w_x[m] * this._lookUpTableBezier[i][m];
-          _y += w_y[m] * this._lookUpTableBezier[i][m];
-        }
-        this.vertex(_x, _y);
-      }
-      // so that we leave currentColor with the last value the user set it to
-      this.curFillColor = fillColors[3];
-      this.curStrokeColor = strokeColors[3];
-      this.immediateMode._bezierVertex[0] = args[4];
-      this.immediateMode._bezierVertex[1] = args[5];
-    } else if (argLength === 9) {
-      this.isBezier = true;
+    let vertex = primitiveShapeCreator(args, this);
 
-      w_x = [this.immediateMode._bezierVertex[0], args[0], args[3], args[6]];
-      w_y = [this.immediateMode._bezierVertex[1], args[1], args[4], args[7]];
-      w_z = [this.immediateMode._bezierVertex[2], args[2], args[5], args[8]];
-      // The ratio of the distance between the start point, the two control-
-      // points, and the end point determines the intermediate color.
-      let d0 = Math.hypot(w_x[0]-w_x[1], w_y[0]-w_y[1], w_z[0]-w_z[1]);
-      let d1 = Math.hypot(w_x[1]-w_x[2], w_y[1]-w_y[2], w_z[1]-w_z[2]);
-      let d2 = Math.hypot(w_x[2]-w_x[3], w_y[2]-w_y[3], w_z[2]-w_z[3]);
-      const totalLength = d0 + d1 + d2;
-      d0 /= totalLength;
-      d2 /= totalLength;
-      for (k = 0; k < 4; k++) {
-        fillColors[1].push(
-          fillColors[0][k] * (1-d0) + fillColors[3][k] * d0
-        );
-        fillColors[2].push(
-          fillColors[0][k] * d2 + fillColors[3][k] * (1-d2)
-        );
-        strokeColors[1].push(
-          strokeColors[0][k] * (1-d0) + strokeColors[3][k] * d0
-        );
-        strokeColors[2].push(
-          strokeColors[0][k] * d2 + strokeColors[3][k] * (1-d2)
-        );
-      }
-      for (i = 0; i < LUTLength; i++) {
-        // Interpolate colors using control points
-        this.curFillColor = [0, 0, 0, 0];
-        this.curStrokeColor = [0, 0, 0, 0];
-        _x = _y = _z = 0;
-        for (m = 0; m < 4; m++) {
-          for (k = 0; k < 4; k++) {
-            this.curFillColor[k] +=
-              this._lookUpTableBezier[i][m] * fillColors[m][k];
-            this.curStrokeColor[k] +=
-              this._lookUpTableBezier[i][m] * strokeColors[m][k];
-          }
-          _x += w_x[m] * this._lookUpTableBezier[i][m];
-          _y += w_y[m] * this._lookUpTableBezier[i][m];
-          _z += w_z[m] * this._lookUpTableBezier[i][m];
-        }
-        this.vertex(_x, _y, _z);
-      }
-      // so that we leave currentColor with the last value the user set it to
-      this.curFillColor = fillColors[3];
-      this.curStrokeColor = strokeColors[3];
-      this.immediateMode._bezierVertex[0] = args[6];
-      this.immediateMode._bezierVertex[1] = args[7];
-      this.immediateMode._bezierVertex[2] = args[8];
-    }
+
+
+
+    let allC = getShape().contourss;
+
+    let currentContour = allC[allC.length - 1];
+
+    console.log('currentContour' ,currentContour);
+    currentContour.addPrimitive(vertex);
+
+    // const LUTLength = this._lookUpTableBezier.length;
+    //
+    // // fillColors[0]: start point color
+    // // fillColors[1],[2]: control point color
+    // // fillColors[3]: end point color
+    // const fillColors = [];
+    // for (m = 0; m < 4; m++) fillColors.push([]);
+    // fillColors[0] = this.immediateMode.geometry.vertexColors.slice(-4);
+    // fillColors[3] = this.curFillColor.slice();
+    //
+    // // Do the same for strokeColor.
+    // const strokeColors = [];
+    // for (m = 0; m < 4; m++) strokeColors.push([]);
+    // strokeColors[0] = this.immediateMode.geometry.vertexStrokeColors.slice(-4);
+    // strokeColors[3] = this.curStrokeColor.slice();
+    //
+    // if (argLength === 6) {
+    //   this.isBezier = true;
+    //
+    //   w_x = [this.immediateMode._bezierVertex[0], args[0], args[2], args[4]];
+    //   w_y = [this.immediateMode._bezierVertex[1], args[1], args[3], args[5]];
+    //   // The ratio of the distance between the start point, the two control-
+    //   // points, and the end point determines the intermediate color.
+    //   let d0 = Math.hypot(w_x[0]-w_x[1], w_y[0]-w_y[1]);
+    //   let d1 = Math.hypot(w_x[1]-w_x[2], w_y[1]-w_y[2]);
+    //   let d2 = Math.hypot(w_x[2]-w_x[3], w_y[2]-w_y[3]);
+    //   const totalLength = d0 + d1 + d2;
+    //   d0 /= totalLength;
+    //   d2 /= totalLength;
+    //   for (k = 0; k < 4; k++) {
+    //     fillColors[1].push(
+    //       fillColors[0][k] * (1-d0) + fillColors[3][k] * d0
+    //     );
+    //     fillColors[2].push(
+    //       fillColors[0][k] * d2 + fillColors[3][k] * (1-d2)
+    //     );
+    //     strokeColors[1].push(
+    //       strokeColors[0][k] * (1-d0) + strokeColors[3][k] * d0
+    //     );
+    //     strokeColors[2].push(
+    //       strokeColors[0][k] * d2 + strokeColors[3][k] * (1-d2)
+    //     );
+    //   }
+    //
+    //   for (i = 0; i < LUTLength; i++) {
+    //     // Interpolate colors using control points
+    //     this.curFillColor = [0, 0, 0, 0];
+    //     this.curStrokeColor = [0, 0, 0, 0];
+    //     _x = _y = 0;
+    //     for (m = 0; m < 4; m++) {
+    //       for (k = 0; k < 4; k++) {
+    //         this.curFillColor[k] +=
+    //           this._lookUpTableBezier[i][m] * fillColors[m][k];
+    //         this.curStrokeColor[k] +=
+    //           this._lookUpTableBezier[i][m] * strokeColors[m][k];
+    //       }
+    //       _x += w_x[m] * this._lookUpTableBezier[i][m];
+    //       _y += w_y[m] * this._lookUpTableBezier[i][m];
+    //     }
+    //     this.vertex(_x, _y);
+    //   }
+    //   // so that we leave currentColor with the last value the user set it to
+    //   this.curFillColor = fillColors[3];
+    //   this.curStrokeColor = strokeColors[3];
+    //   this.immediateMode._bezierVertex[0] = args[4];
+    //   this.immediateMode._bezierVertex[1] = args[5];
+    // } else if (argLength === 9) {
+    //   this.isBezier = true;
+    //
+    //   w_x = [this.immediateMode._bezierVertex[0], args[0], args[3], args[6]];
+    //   w_y = [this.immediateMode._bezierVertex[1], args[1], args[4], args[7]];
+    //   w_z = [this.immediateMode._bezierVertex[2], args[2], args[5], args[8]];
+    //   // The ratio of the distance between the start point, the two control-
+    //   // points, and the end point determines the intermediate color.
+    //   let d0 = Math.hypot(w_x[0]-w_x[1], w_y[0]-w_y[1], w_z[0]-w_z[1]);
+    //   let d1 = Math.hypot(w_x[1]-w_x[2], w_y[1]-w_y[2], w_z[1]-w_z[2]);
+    //   let d2 = Math.hypot(w_x[2]-w_x[3], w_y[2]-w_y[3], w_z[2]-w_z[3]);
+    //   const totalLength = d0 + d1 + d2;
+    //   d0 /= totalLength;
+    //   d2 /= totalLength;
+    //   for (k = 0; k < 4; k++) {
+    //     fillColors[1].push(
+    //       fillColors[0][k] * (1-d0) + fillColors[3][k] * d0
+    //     );
+    //     fillColors[2].push(
+    //       fillColors[0][k] * d2 + fillColors[3][k] * (1-d2)
+    //     );
+    //     strokeColors[1].push(
+    //       strokeColors[0][k] * (1-d0) + strokeColors[3][k] * d0
+    //     );
+    //     strokeColors[2].push(
+    //       strokeColors[0][k] * d2 + strokeColors[3][k] * (1-d2)
+    //     );
+    //   }
+    //   for (i = 0; i < LUTLength; i++) {
+    //     // Interpolate colors using control points
+    //     this.curFillColor = [0, 0, 0, 0];
+    //     this.curStrokeColor = [0, 0, 0, 0];
+    //     _x = _y = _z = 0;
+    //     for (m = 0; m < 4; m++) {
+    //       for (k = 0; k < 4; k++) {
+    //         this.curFillColor[k] +=
+    //           this._lookUpTableBezier[i][m] * fillColors[m][k];
+    //         this.curStrokeColor[k] +=
+    //           this._lookUpTableBezier[i][m] * strokeColors[m][k];
+    //       }
+    //       _x += w_x[m] * this._lookUpTableBezier[i][m];
+    //       _y += w_y[m] * this._lookUpTableBezier[i][m];
+    //       _z += w_z[m] * this._lookUpTableBezier[i][m];
+    //     }
+    //     this.vertex(_x, _y, _z);
+    //   }
+    //   // so that we leave currentColor with the last value the user set it to
+    //   this.curFillColor = fillColors[3];
+    //   this.curStrokeColor = strokeColors[3];
+    //   this.immediateMode._bezierVertex[0] = args[6];
+    //   this.immediateMode._bezierVertex[1] = args[7];
+    //   this.immediateMode._bezierVertex[2] = args[8];
+    // }
   }
 };
 
 p5.RendererGL.prototype.quadraticVertex = function(...args) {
-  if (this.immediateMode._quadraticVertex.length === 0) {
-    throw Error('vertex() must be used once before calling quadraticVertex()');
+  if (this.immediateMode._quadraticVertex.length !== 0) {
+    // throw Error('vertex() must be used once before calling quadraticVertex()');
   } else {
-    let w_x = [];
-    let w_y = [];
-    let w_z = [];
-    let t, _x, _y, _z, i, k, m;
-    // variable i for bezierPoints, k for components, and m for anchor points.
-    const argLength = args.length;
 
-    t = 0;
 
-    if (
-      this._lookUpTableQuadratic.length === 0 ||
-      this._lutQuadraticDetail !== this._pInst._curveDetail
-    ) {
-      this._lookUpTableQuadratic = [];
-      this._lutQuadraticDetail = this._pInst._curveDetail;
-      const step = 1 / this._lutQuadraticDetail;
-      let start = 0;
-      let end = 1;
-      let j = 0;
-      while (start < 1) {
-        t = parseFloat(start.toFixed(6));
-        this._lookUpTableQuadratic[j] = this._quadraticCoefficients(t);
-        if (end.toFixed(6) === step.toFixed(6)) {
-          t = parseFloat(end.toFixed(6)) + parseFloat(start.toFixed(6));
-          ++j;
-          this._lookUpTableQuadratic[j] = this._quadraticCoefficients(t);
-          break;
-        }
-        start += step;
-        end -= step;
-        ++j;
-      }
-    }
+    let keyObject = generateKey('quadraticVertex', null);
 
-    const LUTLength = this._lookUpTableQuadratic.length;
 
-    // fillColors[0]: start point color
-    // fillColors[1]: control point color
-    // fillColors[2]: end point color
-    const fillColors = [];
-    for (m = 0; m < 3; m++) fillColors.push([]);
-    fillColors[0] = this.immediateMode.geometry.vertexColors.slice(-4);
-    fillColors[2] = this.curFillColor.slice();
+    let primitiveShapeCreator = primitiveShapeCreators.get(keyObject);
 
-    // Do the same for strokeColor.
-    const strokeColors = [];
-    for (m = 0; m < 3; m++) strokeColors.push([]);
-    strokeColors[0] = this.immediateMode.geometry.vertexStrokeColors.slice(-4);
-    strokeColors[2] = this.curStrokeColor.slice();
 
-    if (argLength === 4) {
-      this.isQuadratic = true;
+    let vertex = primitiveShapeCreator(args, this);
 
-      w_x = [this.immediateMode._quadraticVertex[0], args[0], args[2]];
-      w_y = [this.immediateMode._quadraticVertex[1], args[1], args[3]];
 
-      // The ratio of the distance between the start point, the control-
-      // point, and the end point determines the intermediate color.
-      let d0 = Math.hypot(w_x[0]-w_x[1], w_y[0]-w_y[1]);
-      let d1 = Math.hypot(w_x[1]-w_x[2], w_y[1]-w_y[2]);
-      const totalLength = d0 + d1;
-      d0 /= totalLength;
-      for (k = 0; k < 4; k++) {
-        fillColors[1].push(
-          fillColors[0][k] * (1-d0) + fillColors[2][k] * d0
-        );
-        strokeColors[1].push(
-          strokeColors[0][k] * (1-d0) + strokeColors[2][k] * d0
-        );
-      }
 
-      for (i = 0; i < LUTLength; i++) {
-        // Interpolate colors using control points
-        this.curFillColor = [0, 0, 0, 0];
-        this.curStrokeColor = [0, 0, 0, 0];
-        _x = _y = 0;
-        for (m = 0; m < 3; m++) {
-          for (k = 0; k < 4; k++) {
-            this.curFillColor[k] +=
-              this._lookUpTableQuadratic[i][m] * fillColors[m][k];
-            this.curStrokeColor[k] +=
-              this._lookUpTableQuadratic[i][m] * strokeColors[m][k];
-          }
-          _x += w_x[m] * this._lookUpTableQuadratic[i][m];
-          _y += w_y[m] * this._lookUpTableQuadratic[i][m];
-        }
-        this.vertex(_x, _y);
-      }
 
-      // so that we leave currentColor with the last value the user set it to
-      this.curFillColor = fillColors[2];
-      this.curStrokeColor = strokeColors[2];
-      this.immediateMode._quadraticVertex[0] = args[2];
-      this.immediateMode._quadraticVertex[1] = args[3];
-    } else if (argLength === 6) {
-      this.isQuadratic = true;
+    let allC = getShape().contourss;
 
-      w_x = [this.immediateMode._quadraticVertex[0], args[0], args[3]];
-      w_y = [this.immediateMode._quadraticVertex[1], args[1], args[4]];
-      w_z = [this.immediateMode._quadraticVertex[2], args[2], args[5]];
+    let currentContour = allC[allC.length - 1];
 
-      // The ratio of the distance between the start point, the control-
-      // point, and the end point determines the intermediate color.
-      let d0 = Math.hypot(w_x[0]-w_x[1], w_y[0]-w_y[1], w_z[0]-w_z[1]);
-      let d1 = Math.hypot(w_x[1]-w_x[2], w_y[1]-w_y[2], w_z[1]-w_z[2]);
-      const totalLength = d0 + d1;
-      d0 /= totalLength;
-      for (k = 0; k < 4; k++) {
-        fillColors[1].push(
-          fillColors[0][k] * (1-d0) + fillColors[2][k] * d0
-        );
-        strokeColors[1].push(
-          strokeColors[0][k] * (1-d0) + strokeColors[2][k] * d0
-        );
-      }
-
-      for (i = 0; i < LUTLength; i++) {
-        // Interpolate colors using control points
-        this.curFillColor = [0, 0, 0, 0];
-        this.curStrokeColor = [0, 0, 0, 0];
-        _x = _y = _z = 0;
-        for (m = 0; m < 3; m++) {
-          for (k = 0; k < 4; k++) {
-            this.curFillColor[k] +=
-              this._lookUpTableQuadratic[i][m] * fillColors[m][k];
-            this.curStrokeColor[k] +=
-              this._lookUpTableQuadratic[i][m] * strokeColors[m][k];
-          }
-          _x += w_x[m] * this._lookUpTableQuadratic[i][m];
-          _y += w_y[m] * this._lookUpTableQuadratic[i][m];
-          _z += w_z[m] * this._lookUpTableQuadratic[i][m];
-        }
-        this.vertex(_x, _y, _z);
-      }
-
-      // so that we leave currentColor with the last value the user set it to
-      this.curFillColor = fillColors[2];
-      this.curStrokeColor = strokeColors[2];
-      this.immediateMode._quadraticVertex[0] = args[3];
-      this.immediateMode._quadraticVertex[1] = args[4];
-      this.immediateMode._quadraticVertex[2] = args[5];
-    }
+    console.log('currentContour' ,currentContour);
+    currentContour.addPrimitive(vertex);
+    // let w_x = [];
+    // let w_y = [];
+    // let w_z = [];
+    // let t, _x, _y, _z, i, k, m;
+    // // variable i for bezierPoints, k for components, and m for anchor points.
+    // const argLength = args.length;
+    //
+    // t = 0;
+    //
+    // if (
+    //   this._lookUpTableQuadratic.length === 0 ||
+    //   this._lutQuadraticDetail !== this._pInst._curveDetail
+    // ) {
+    //   this._lookUpTableQuadratic = [];
+    //   this._lutQuadraticDetail = this._pInst._curveDetail;
+    //   const step = 1 / this._lutQuadraticDetail;
+    //   let start = 0;
+    //   let end = 1;
+    //   let j = 0;
+    //   while (start < 1) {
+    //     t = parseFloat(start.toFixed(6));
+    //     this._lookUpTableQuadratic[j] = this._quadraticCoefficients(t);
+    //     if (end.toFixed(6) === step.toFixed(6)) {
+    //       t = parseFloat(end.toFixed(6)) + parseFloat(start.toFixed(6));
+    //       ++j;
+    //       this._lookUpTableQuadratic[j] = this._quadraticCoefficients(t);
+    //       break;
+    //     }
+    //     start += step;
+    //     end -= step;
+    //     ++j;
+    //   }
+    // }
+    //
+    // const LUTLength = this._lookUpTableQuadratic.length;
+    //
+    // // fillColors[0]: start point color
+    // // fillColors[1]: control point color
+    // // fillColors[2]: end point color
+    // const fillColors = [];
+    // for (m = 0; m < 3; m++) fillColors.push([]);
+    // fillColors[0] = this.immediateMode.geometry.vertexColors.slice(-4);
+    // fillColors[2] = this.curFillColor.slice();
+    //
+    // // Do the same for strokeColor.
+    // const strokeColors = [];
+    // for (m = 0; m < 3; m++) strokeColors.push([]);
+    // strokeColors[0] = this.immediateMode.geometry.vertexStrokeColors.slice(-4);
+    // strokeColors[2] = this.curStrokeColor.slice();
+    //
+    // if (argLength === 4) {
+    //   this.isQuadratic = true;
+    //
+    //   w_x = [this.immediateMode._quadraticVertex[0], args[0], args[2]];
+    //   w_y = [this.immediateMode._quadraticVertex[1], args[1], args[3]];
+    //
+    //   // The ratio of the distance between the start point, the control-
+    //   // point, and the end point determines the intermediate color.
+    //   let d0 = Math.hypot(w_x[0]-w_x[1], w_y[0]-w_y[1]);
+    //   let d1 = Math.hypot(w_x[1]-w_x[2], w_y[1]-w_y[2]);
+    //   const totalLength = d0 + d1;
+    //   d0 /= totalLength;
+    //   for (k = 0; k < 4; k++) {
+    //     fillColors[1].push(
+    //       fillColors[0][k] * (1-d0) + fillColors[2][k] * d0
+    //     );
+    //     strokeColors[1].push(
+    //       strokeColors[0][k] * (1-d0) + strokeColors[2][k] * d0
+    //     );
+    //   }
+    //
+    //   for (i = 0; i < LUTLength; i++) {
+    //     // Interpolate colors using control points
+    //     this.curFillColor = [0, 0, 0, 0];
+    //     this.curStrokeColor = [0, 0, 0, 0];
+    //     _x = _y = 0;
+    //     for (m = 0; m < 3; m++) {
+    //       for (k = 0; k < 4; k++) {
+    //         this.curFillColor[k] +=
+    //           this._lookUpTableQuadratic[i][m] * fillColors[m][k];
+    //         this.curStrokeColor[k] +=
+    //           this._lookUpTableQuadratic[i][m] * strokeColors[m][k];
+    //       }
+    //       _x += w_x[m] * this._lookUpTableQuadratic[i][m];
+    //       _y += w_y[m] * this._lookUpTableQuadratic[i][m];
+    //     }
+    //     this.vertex(_x, _y);
+    //   }
+    //
+    //   // so that we leave currentColor with the last value the user set it to
+    //   this.curFillColor = fillColors[2];
+    //   this.curStrokeColor = strokeColors[2];
+    //   this.immediateMode._quadraticVertex[0] = args[2];
+    //   this.immediateMode._quadraticVertex[1] = args[3];
+    // } else if (argLength === 6) {
+    //   this.isQuadratic = true;
+    //
+    //   w_x = [this.immediateMode._quadraticVertex[0], args[0], args[3]];
+    //   w_y = [this.immediateMode._quadraticVertex[1], args[1], args[4]];
+    //   w_z = [this.immediateMode._quadraticVertex[2], args[2], args[5]];
+    //
+    //   // The ratio of the distance between the start point, the control-
+    //   // point, and the end point determines the intermediate color.
+    //   let d0 = Math.hypot(w_x[0]-w_x[1], w_y[0]-w_y[1], w_z[0]-w_z[1]);
+    //   let d1 = Math.hypot(w_x[1]-w_x[2], w_y[1]-w_y[2], w_z[1]-w_z[2]);
+    //   const totalLength = d0 + d1;
+    //   d0 /= totalLength;
+    //   for (k = 0; k < 4; k++) {
+    //     fillColors[1].push(
+    //       fillColors[0][k] * (1-d0) + fillColors[2][k] * d0
+    //     );
+    //     strokeColors[1].push(
+    //       strokeColors[0][k] * (1-d0) + strokeColors[2][k] * d0
+    //     );
+    //   }
+    //
+    //   for (i = 0; i < LUTLength; i++) {
+    //     // Interpolate colors using control points
+    //     this.curFillColor = [0, 0, 0, 0];
+    //     this.curStrokeColor = [0, 0, 0, 0];
+    //     _x = _y = _z = 0;
+    //     for (m = 0; m < 3; m++) {
+    //       for (k = 0; k < 4; k++) {
+    //         this.curFillColor[k] +=
+    //           this._lookUpTableQuadratic[i][m] * fillColors[m][k];
+    //         this.curStrokeColor[k] +=
+    //           this._lookUpTableQuadratic[i][m] * strokeColors[m][k];
+    //       }
+    //       _x += w_x[m] * this._lookUpTableQuadratic[i][m];
+    //       _y += w_y[m] * this._lookUpTableQuadratic[i][m];
+    //       _z += w_z[m] * this._lookUpTableQuadratic[i][m];
+    //     }
+    //     this.vertex(_x, _y, _z);
+    //   }
+    //
+    //   // so that we leave currentColor with the last value the user set it to
+    //   this.curFillColor = fillColors[2];
+    //   this.curStrokeColor = strokeColors[2];
+    //   this.immediateMode._quadraticVertex[0] = args[3];
+    //   this.immediateMode._quadraticVertex[1] = args[4];
+    //   this.immediateMode._quadraticVertex[2] = args[5];
+    // }
   }
 };
 
 p5.RendererGL.prototype.curveVertex = function(...args) {
-  let w_x = [];
-  let w_y = [];
-  let w_z = [];
-  let t, _x, _y, _z, i;
-  t = 0;
-  const argLength = args.length;
 
-  if (
-    this._lookUpTableBezier.length === 0 ||
-    this._lutBezierDetail !== this._pInst._curveDetail
-  ) {
-    this._lookUpTableBezier = [];
-    this._lutBezierDetail = this._pInst._curveDetail;
-    const step = 1 / this._lutBezierDetail;
-    let start = 0;
-    let end = 1;
-    let j = 0;
-    while (start < 1) {
-      t = parseFloat(start.toFixed(6));
-      this._lookUpTableBezier[j] = this._bezierCoefficients(t);
-      if (end.toFixed(6) === step.toFixed(6)) {
-        t = parseFloat(end.toFixed(6)) + parseFloat(start.toFixed(6));
-        ++j;
-        this._lookUpTableBezier[j] = this._bezierCoefficients(t);
-        break;
-      }
-      start += step;
-      end -= step;
-      ++j;
-    }
-  }
 
-  const LUTLength = this._lookUpTableBezier.length;
 
-  if (argLength === 2) {
-    this.immediateMode._curveVertex.push(args[0]);
-    this.immediateMode._curveVertex.push(args[1]);
-    if (this.immediateMode._curveVertex.length === 8) {
-      this.isCurve = true;
-      w_x = this._bezierToCatmull([
-        this.immediateMode._curveVertex[0],
-        this.immediateMode._curveVertex[2],
-        this.immediateMode._curveVertex[4],
-        this.immediateMode._curveVertex[6]
-      ]);
-      w_y = this._bezierToCatmull([
-        this.immediateMode._curveVertex[1],
-        this.immediateMode._curveVertex[3],
-        this.immediateMode._curveVertex[5],
-        this.immediateMode._curveVertex[7]
-      ]);
-      for (i = 0; i < LUTLength; i++) {
-        _x =
-          w_x[0] * this._lookUpTableBezier[i][0] +
-          w_x[1] * this._lookUpTableBezier[i][1] +
-          w_x[2] * this._lookUpTableBezier[i][2] +
-          w_x[3] * this._lookUpTableBezier[i][3];
-        _y =
-          w_y[0] * this._lookUpTableBezier[i][0] +
-          w_y[1] * this._lookUpTableBezier[i][1] +
-          w_y[2] * this._lookUpTableBezier[i][2] +
-          w_y[3] * this._lookUpTableBezier[i][3];
-        this.vertex(_x, _y);
-      }
-      for (i = 0; i < argLength; i++) {
-        this.immediateMode._curveVertex.shift();
-      }
-    }
-  } else if (argLength === 3) {
-    this.immediateMode._curveVertex.push(args[0]);
-    this.immediateMode._curveVertex.push(args[1]);
-    this.immediateMode._curveVertex.push(args[2]);
-    if (this.immediateMode._curveVertex.length === 12) {
-      this.isCurve = true;
-      w_x = this._bezierToCatmull([
-        this.immediateMode._curveVertex[0],
-        this.immediateMode._curveVertex[3],
-        this.immediateMode._curveVertex[6],
-        this.immediateMode._curveVertex[9]
-      ]);
-      w_y = this._bezierToCatmull([
-        this.immediateMode._curveVertex[1],
-        this.immediateMode._curveVertex[4],
-        this.immediateMode._curveVertex[7],
-        this.immediateMode._curveVertex[10]
-      ]);
-      w_z = this._bezierToCatmull([
-        this.immediateMode._curveVertex[2],
-        this.immediateMode._curveVertex[5],
-        this.immediateMode._curveVertex[8],
-        this.immediateMode._curveVertex[11]
-      ]);
-      for (i = 0; i < LUTLength; i++) {
-        _x =
-          w_x[0] * this._lookUpTableBezier[i][0] +
-          w_x[1] * this._lookUpTableBezier[i][1] +
-          w_x[2] * this._lookUpTableBezier[i][2] +
-          w_x[3] * this._lookUpTableBezier[i][3];
-        _y =
-          w_y[0] * this._lookUpTableBezier[i][0] +
-          w_y[1] * this._lookUpTableBezier[i][1] +
-          w_y[2] * this._lookUpTableBezier[i][2] +
-          w_y[3] * this._lookUpTableBezier[i][3];
-        _z =
-          w_z[0] * this._lookUpTableBezier[i][0] +
-          w_z[1] * this._lookUpTableBezier[i][1] +
-          w_z[2] * this._lookUpTableBezier[i][2] +
-          w_z[3] * this._lookUpTableBezier[i][3];
-        this.vertex(_x, _y, _z);
-      }
-      for (i = 0; i < argLength; i++) {
-        this.immediateMode._curveVertex.shift();
-      }
-    }
-  }
+  let keyObject = generateKey('curveVertex', null);
+
+
+  let primitiveShapeCreator = primitiveShapeCreators.get(keyObject);
+
+
+  let vertex = primitiveShapeCreator(args, this);
+
+
+
+
+  let allC = getShape().contourss;
+
+  let currentContour = allC[allC.length - 1];
+
+  console.log('currentContour' ,currentContour);
+  currentContour.addPrimitive(vertex);
+  // let w_x = [];
+  // let w_y = [];
+  // let w_z = [];
+  // let t, _x, _y, _z, i;
+  // t = 0;
+  // const argLength = args.length;
+  //
+  // if (
+  //   this._lookUpTableBezier.length === 0 ||
+  //   this._lutBezierDetail !== this._pInst._curveDetail
+  // ) {
+  //   this._lookUpTableBezier = [];
+  //   this._lutBezierDetail = this._pInst._curveDetail;
+  //   const step = 1 / this._lutBezierDetail;
+  //   let start = 0;
+  //   let end = 1;
+  //   let j = 0;
+  //   while (start < 1) {
+  //     t = parseFloat(start.toFixed(6));
+  //     this._lookUpTableBezier[j] = this._bezierCoefficients(t);
+  //     if (end.toFixed(6) === step.toFixed(6)) {
+  //       t = parseFloat(end.toFixed(6)) + parseFloat(start.toFixed(6));
+  //       ++j;
+  //       this._lookUpTableBezier[j] = this._bezierCoefficients(t);
+  //       break;
+  //     }
+  //     start += step;
+  //     end -= step;
+  //     ++j;
+  //   }
+  // }
+  //
+  // const LUTLength = this._lookUpTableBezier.length;
+  //
+  // if (argLength === 2) {
+  //   this.immediateMode._curveVertex.push(args[0]);
+  //   this.immediateMode._curveVertex.push(args[1]);
+  //   if (this.immediateMode._curveVertex.length === 8) {
+  //     this.isCurve = true;
+  //     w_x = this._bezierToCatmull([
+  //       this.immediateMode._curveVertex[0],
+  //       this.immediateMode._curveVertex[2],
+  //       this.immediateMode._curveVertex[4],
+  //       this.immediateMode._curveVertex[6]
+  //     ]);
+  //     w_y = this._bezierToCatmull([
+  //       this.immediateMode._curveVertex[1],
+  //       this.immediateMode._curveVertex[3],
+  //       this.immediateMode._curveVertex[5],
+  //       this.immediateMode._curveVertex[7]
+  //     ]);
+  //     for (i = 0; i < LUTLength; i++) {
+  //       _x =
+  //         w_x[0] * this._lookUpTableBezier[i][0] +
+  //         w_x[1] * this._lookUpTableBezier[i][1] +
+  //         w_x[2] * this._lookUpTableBezier[i][2] +
+  //         w_x[3] * this._lookUpTableBezier[i][3];
+  //       _y =
+  //         w_y[0] * this._lookUpTableBezier[i][0] +
+  //         w_y[1] * this._lookUpTableBezier[i][1] +
+  //         w_y[2] * this._lookUpTableBezier[i][2] +
+  //         w_y[3] * this._lookUpTableBezier[i][3];
+  //       this.vertex(_x, _y);
+  //     }
+  //     for (i = 0; i < argLength; i++) {
+  //       this.immediateMode._curveVertex.shift();
+  //     }
+  //   }
+  // } else if (argLength === 3) {
+  //   this.immediateMode._curveVertex.push(args[0]);
+  //   this.immediateMode._curveVertex.push(args[1]);
+  //   this.immediateMode._curveVertex.push(args[2]);
+  //   if (this.immediateMode._curveVertex.length === 12) {
+  //     this.isCurve = true;
+  //     w_x = this._bezierToCatmull([
+  //       this.immediateMode._curveVertex[0],
+  //       this.immediateMode._curveVertex[3],
+  //       this.immediateMode._curveVertex[6],
+  //       this.immediateMode._curveVertex[9]
+  //     ]);
+  //     w_y = this._bezierToCatmull([
+  //       this.immediateMode._curveVertex[1],
+  //       this.immediateMode._curveVertex[4],
+  //       this.immediateMode._curveVertex[7],
+  //       this.immediateMode._curveVertex[10]
+  //     ]);
+  //     w_z = this._bezierToCatmull([
+  //       this.immediateMode._curveVertex[2],
+  //       this.immediateMode._curveVertex[5],
+  //       this.immediateMode._curveVertex[8],
+  //       this.immediateMode._curveVertex[11]
+  //     ]);
+  //     for (i = 0; i < LUTLength; i++) {
+  //       _x =
+  //         w_x[0] * this._lookUpTableBezier[i][0] +
+  //         w_x[1] * this._lookUpTableBezier[i][1] +
+  //         w_x[2] * this._lookUpTableBezier[i][2] +
+  //         w_x[3] * this._lookUpTableBezier[i][3];
+  //       _y =
+  //         w_y[0] * this._lookUpTableBezier[i][0] +
+  //         w_y[1] * this._lookUpTableBezier[i][1] +
+  //         w_y[2] * this._lookUpTableBezier[i][2] +
+  //         w_y[3] * this._lookUpTableBezier[i][3];
+  //       _z =
+  //         w_z[0] * this._lookUpTableBezier[i][0] +
+  //         w_z[1] * this._lookUpTableBezier[i][1] +
+  //         w_z[2] * this._lookUpTableBezier[i][2] +
+  //         w_z[3] * this._lookUpTableBezier[i][3];
+  //       this.vertex(_x, _y, _z);
+  //     }
+  //     for (i = 0; i < argLength; i++) {
+  //       this.immediateMode._curveVertex.shift();
+  //     }
+  //   }
+  // }
 };
 
 p5.RendererGL.prototype.image = function(

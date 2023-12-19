@@ -14,6 +14,18 @@
 import p5 from '../core/main';
 import * as constants from '../core/constants';
 import './p5.RenderBuffer';
+import {
+  generateKey,
+  primitiveShapeCreators,
+  modifyShape, getShape
+} from '../core/shape/vertex';
+import {
+  beginContour,
+  Contour,
+  PrimitiveToVerticesConverter,
+  Shape
+} from '../core/shape/2d_shape';
+
 
 /**
  * Begin shape drawing.  This is a helpful way of generating
@@ -35,6 +47,10 @@ p5.RendererGL.prototype.beginShape = function(mode) {
     mode !== undefined ? mode : constants.TESS;
   this.immediateMode.geometry.reset();
   this.immediateMode.contourIndices = [];
+  let shape = new Shape(3, null);
+  let c = new Contour(null);
+  shape.addContour(c);
+  modifyShape(shape);
   return this;
 };
 
@@ -50,9 +66,23 @@ p5.RendererGL.prototype.beginContour = function() {
   if (this.immediateMode.shapeMode !== constants.TESS) {
     throw new Error('WebGL mode can only use contours with beginShape(TESS).');
   }
-  this.immediateMode.contourIndices.push(
-    this.immediateMode.geometry.vertices.length
-  );
+
+
+  let allC = getShape().contourss;
+
+  let currentContour = allC[allC.length - 1];
+
+  console.log('currentContour' ,currentContour);
+  let vertex;
+  // i just created a beginContour and added it as a primitive, just to make
+  // sure it works, and ya have to do something about this ?
+  vertex = new beginContour(this);
+
+  currentContour.addPrimitive(vertex);
+
+  // this.immediateMode.contourIndices.push(
+  //   this.immediateMode.geometry.vertices.length
+  // );
 };
 
 /**
@@ -92,75 +122,123 @@ p5.RendererGL.prototype.vertex = function(x, y) {
     }
   }
 
+  let keyObject = generateKey('vertex', null);
+
+
+  let primitiveShapeCreator = primitiveShapeCreators.get(keyObject);
   let z, u, v;
 
   // default to (x, y) mode: all other arguments assumed to be 0.
   z = u = v = 0;
+  let vertex;
 
+
+
+  console.log('arguments', arguments);
   if (arguments.length === 3) {
     // (x, y, z) mode: (u, v) assumed to be 0.
     z = arguments[2];
+
+    // console.log(primitiveShapeCreator);
+
+    // vertex = primitiveShapeCreator(x, y, z);
   } else if (arguments.length === 4) {
     // (x, y, u, v) mode: z assumed to be 0.
     u = arguments[2];
     v = arguments[3];
+    // vertex = primitiveShapeCreator(x, y, z = 0, u, v);
   } else if (arguments.length === 5) {
     // (x, y, z, u, v) mode
     z = arguments[2];
     u = arguments[3];
     v = arguments[4];
-  }
-  const vert = new p5.Vector(x, y, z);
-  this.immediateMode.geometry.vertices.push(vert);
-  this.immediateMode.geometry.vertexNormals.push(this._currentNormal);
-  const vertexColor = this.curFillColor || [0.5, 0.5, 0.5, 1.0];
-  this.immediateMode.geometry.vertexColors.push(
-    vertexColor[0],
-    vertexColor[1],
-    vertexColor[2],
-    vertexColor[3]
-  );
-  const lineVertexColor = this.curStrokeColor || [0.5, 0.5, 0.5, 1];
-  this.immediateMode.geometry.vertexStrokeColors.push(
-    lineVertexColor[0],
-    lineVertexColor[1],
-    lineVertexColor[2],
-    lineVertexColor[3]
-  );
-
-  if (this.textureMode === constants.IMAGE && !this.isProcessingVertices) {
-    if (this._tex !== null) {
-      if (this._tex.width > 0 && this._tex.height > 0) {
-        u /= this._tex.width;
-        v /= this._tex.height;
-      }
-    } else if (
-      this.userFillShader !== undefined ||
-      this.userStrokeShader !== undefined ||
-      this.userPointShader !== undefined
-    ) {
-    // Do nothing if user-defined shaders are present
-    } else if (
-      this._tex === null &&
-      arguments.length >= 4
-    ) {
-      // Only throw this warning if custom uv's have  been provided
-      console.warn(
-        'You must first call texture() before using' +
-          ' vertex() with image based u and v coordinates'
-      );
-    }
+    // vertex = primitiveShapeCreator(x, y, z, u, v);
   }
 
-  this.immediateMode.geometry.uvs.push(u, v);
 
-  this.immediateMode._bezierVertex[0] = x;
-  this.immediateMode._bezierVertex[1] = y;
-  this.immediateMode._bezierVertex[2] = z;
 
-  this.immediateMode._quadraticVertex[0] = x;
-  this.immediateMode._quadraticVertex[1] = y;
-  this.immediateMode._quadraticVertex[2] = z;
+
+
+
+
+
+
+
+  //
+  // const converter = new PrimitiveToVerticesConverter(); // Create the converter
+  // vertex.accept(converter); // Visit each primitive with the converter
+
+
+
+
+
+
+  // const vert = new p5.Vector(x, y, z);
+  // this.immediateMode.geometry.vertices.push(vert);
+  // this.immediateMode.geometry.vertexNormals.push(this._currentNormal);
+  // const vertexColor = this.curFillColor || [0.5, 0.5, 0.5, 1.0];
+  // this.immediateMode.geometry.vertexColors.push(
+  //   vertexColor[0],
+  //   vertexColor[1],
+  //   vertexColor[2],
+  //   vertexColor[3]
+  // );
+  // const lineVertexColor = this.curStrokeColor || [0.5, 0.5, 0.5, 1];
+  // this.immediateMode.geometry.vertexStrokeColors.push(
+  //   lineVertexColor[0],
+  //   lineVertexColor[1],
+  //   lineVertexColor[2],
+  //   lineVertexColor[3]
+  // );
+  //
+  // if (this.textureMode === constants.IMAGE && !this.isProcessingVertices) {
+  //   if (this._tex !== null) {
+  //     if (this._tex.width > 0 && this._tex.height > 0) {
+  //       u /= this._tex.width;
+  //       v /= this._tex.height;
+  //     }
+  //   } else if (
+  //     this.userFillShader !== undefined ||
+  //     this.userStrokeShader !== undefined ||
+  //     this.userPointShader !== undefined
+  //   ) {
+  //   // Do nothing if user-defined shaders are present
+  //   } else if (
+  //     this._tex === null &&
+  //     arguments.length >= 4
+  //   ) {
+  //     // Only throw this warning if custom uv's have  been provided
+  //     console.warn(
+  //       'You must first call texture() before using' +
+  //         ' vertex() with image based u and v coordinates'
+  //     );
+  //   }
+  // }
+  //
+  // this.immediateMode.geometry.uvs.push(u, v);
+  //
+  // this.immediateMode._bezierVertex[0] = x;
+  // this.immediateMode._bezierVertex[1] = y;
+  // this.immediateMode._bezierVertex[2] = z;
+  //
+  // this.immediateMode._quadraticVertex[0] = x;
+  // this.immediateMode._quadraticVertex[1] = y;
+  // this.immediateMode._quadraticVertex[2] = z;
+
+  let allC = getShape().contourss;
+
+  let currentContour = allC[allC.length - 1];
+
+  console.log('currentContour' ,currentContour);
+
+
+  vertex = primitiveShapeCreator(x, y, z, u, v, this);
+
+  currentContour.addPrimitive(vertex);
+
+  // const converter = new PrimitiveToVerticesConverter(); // Create the converter
+  // vertex.accept(converter); // Visit each primitive with the converter
+
 
   return this;
 };
@@ -216,6 +294,46 @@ p5.RendererGL.prototype.endShape = function(
     this.immediateMode.shapeMode === constants.TRIANGLES;
   }
 
+  // drawShape(shape);
+
+
+  //
+  // const converter = new PrimitiveToVerticesConverter(); // Create the converter
+  // // if (!this._clipping) this.drawingContext.beginPath();
+  //
+  // console.log('shape', shape);
+  // console.log('shape.contourss', shape.cvontourss);
+  // shape.contourss.forEach(contour => {
+  //   // converter.index = 0;
+  //   contour.primitivess.forEach(primitive => {
+  //     primitive.accept(converter); // Visit each primitive with the converter
+  //   });
+  // });
+
+
+  const converter = new PrimitiveToVerticesConverter(); // Create the converter
+  // if (!this._clipping) this.drawingContext.beginPath();
+
+  console.log('shape', getShape());
+  console.log('shape.contourss', getShape().contourss);
+  // getShape().contourss.forEach(contour => {
+  //   // converter.index = 0;
+  //   contour.primitivess.forEach(primitive => {
+  //     console.log('primitive', primitive);
+  //     primitive.accept(converter); // Visit each primitive with the converter
+  //   });
+  // });
+
+  getShape().contours.forEach(contour => {
+    // converter.index = 0;
+    contour.primitives.forEach(primitive => {
+      console.log('primitive', primitive);
+      primitive.accept(converter); // Visit each primitive with the converter
+    });
+  });
+
+  //check if immediate_mode changes when changes inside accept works ?
+
   this.isProcessingVertices = true;
   this._processVertices(...arguments);
   this.isProcessingVertices = false;
@@ -265,9 +383,18 @@ p5.RendererGL.prototype.endShape = function(
   this.immediateMode._bezierVertex.length = 0;
   this.immediateMode._quadraticVertex.length = 0;
   this.immediateMode._curveVertex.length = 0;
+
+  getShape().contourss.length = 0;
+  // let allC = getShape().contourss;
+  //
+  // let currentContour = allC[allC.length - 1];
+  // currentContour.primitivess.length = 0;
   return this;
 };
 
+// function drawShape(shape) {
+//
+// }
 /**
  * Called from endShape(). This function calculates the stroke vertices for custom shapes and
  * tesselates shapes when applicable.

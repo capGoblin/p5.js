@@ -8,7 +8,15 @@
 
 import p5 from '../main';
 import * as constants from '../constants';
+import {
+  BezierSegment,
+  Contour, CurveSegment, Point,
+  QuadraticSegment,
+  Shape,
+  VertexSegment
+} from './2d_shape';
 let shapeKind = null;
+let shape = null;
 let vertices = [];
 let contourVertices = [];
 let isBezier = false;
@@ -16,6 +24,329 @@ let isCurve = false;
 let isQuadratic = false;
 let isContour = false;
 let isFirstContour = true;
+let closeShape = false;
+const dimension = {
+  two: 2,
+  three: 3
+};
+
+
+export function modifyShape(newShape) {
+  shape = newShape;
+}
+
+export function getShape() {
+  return shape;
+}
+
+export function generateKey(vertexKind, shapeKind) {
+  return JSON.stringify({ vertexKind, shapeKind });
+}
+export const primitiveShapeCreators = new Map();
+
+// Curve with null shapeKind
+primitiveShapeCreators.set(generateKey('curveVertex', null), (args, rendererGL) => {
+  // Construct shape primitives for curve vertices with null shapeKind
+
+  return new CurveSegment(args, rendererGL);
+
+  // if (numVerts > 3) {
+  //   const b = [],
+  //     s = 1 - this._curveTightness;
+  //   if (!this._clipping) this.drawingContext.beginPath();
+  //   this.drawingContext.moveTo(vertices[1][0], vertices[1][1]);
+  //   for (i = 1; i + 2 < numVerts; i++) {
+  //     v = vertices[i];
+  //     b[0] = [v[0], v[1]];
+  //     b[1] = [
+  //       v[0] + (s * vertices[i + 1][0] - s * vertices[i - 1][0]) / 6,
+  //       v[1] + (s * vertices[i + 1][1] - s * vertices[i - 1][1]) / 6
+  //     ];
+  //     b[2] = [
+  //       vertices[i + 1][0] +
+  //       (s * vertices[i][0] - s * vertices[i + 2][0]) / 6,
+  //       vertices[i + 1][1] +
+  //       (s * vertices[i][1] - s * vertices[i + 2][1]) / 6
+  //     ];
+  //     b[3] = [vertices[i + 1][0], vertices[i + 1][1]];
+  //     this.drawingContext.bezierCurveTo(
+  //       b[1][0],
+  //       b[1][1],
+  //       b[2][0],
+  //       b[2][1],
+  //       b[3][0],
+  //       b[3][1]
+  //     );
+  //   }
+  //   if (closeShape) {
+  //     this.drawingContext.lineTo(vertices[i + 1][0], vertices[i + 1][1]);
+  //   }
+  //   this._doFillStrokeClose(closeShape);
+  // }
+});
+//
+// // Bezier with null shapeKind
+// primitiveShapeCreators.set(['bezierVertex', null], (/* data for constructor */) => {
+//   // Construct shape primitives for bezier vertices with null shapeKind
+//
+//   if (!this._clipping) this.drawingContext.beginPath();
+//   for (i = 0; i < numVerts; i++) {
+//     if (vertices[i].isVert) {
+//       if (vertices[i].moveTo) {
+//         this.drawingContext.moveTo(vertices[i][0], vertices[i][1]);
+//       } else {
+//         this.drawingContext.lineTo(vertices[i][0], vertices[i][1]);
+//       }
+//     } else {
+//       this.drawingContext.bezierCurveTo(
+//         vertices[i][0],
+//         vertices[i][1],
+//         vertices[i][2],
+//         vertices[i][3],
+//         vertices[i][4],
+//         vertices[i][5]
+//       );
+//     }
+//   }
+//   this._doFillStrokeClose(closeShape);
+// });
+//
+// // Quadratic with null shapeKind
+primitiveShapeCreators.set(generateKey('quadraticVertex', null), (args, renderer) => {
+  // Construct shape primitives for quadratic vertices with null shapeKind
+  return new QuadraticSegment(args, renderer);
+
+
+  // if (!this._clipping) this.drawingContext.beginPath();
+  // for (i = 0; i < numVerts; i++) {
+  //   if (vertices[i].isVert) {
+  //     if (vertices[i].moveTo) {
+  //       this.drawingContext.moveTo(vertices[i][0], vertices[i][1]);
+  //     } else {
+  //       this.drawingContext.lineTo(vertices[i][0], vertices[i][1]);
+  //     }
+  //   } else {
+  //     this.drawingContext.quadraticCurveTo(
+  //       vertices[i][0],
+  //       vertices[i][1],
+  //       vertices[i][2],
+  //       vertices[i][3]
+  //     );
+  //   }
+  // }
+  // this._doFillStrokeClose(closeShape);
+});
+primitiveShapeCreators.set(generateKey('bezierVertex', null), (args, renderer) => {
+  // Construct shape primitives for quadratic vertices with null shapeKind
+  return new BezierSegment(args, renderer);
+
+
+  // if (!this._clipping) this.drawingContext.beginPath();
+  // for (i = 0; i < numVerts; i++) {
+  //   if (vertices[i].isVert) {
+  //     if (vertices[i].moveTo) {
+  //       this.drawingContext.moveTo(vertices[i][0], vertices[i][1]);
+  //     } else {
+  //       this.drawingContext.lineTo(vertices[i][0], vertices[i][1]);
+  //     }
+  //   } else {
+  //     this.drawingContext.quadraticCurveTo(
+  //       vertices[i][0],
+  //       vertices[i][1],
+  //       vertices[i][2],
+  //       vertices[i][3]
+  //     );
+  //   }
+  // }
+  // this._doFillStrokeClose(closeShape);
+});
+//
+// // Vertices with POINTS shapeKind
+primitiveShapeCreators.set(generateKey('vertex', constants.POINTS), (vert) => {
+  // Construct shape primitives for Vertex with POINTS shapeKind
+
+  return new Point(vert);
+});
+//
+// // Vertices with LINES shapeKind
+// primitiveShapeCreators.set(['vertex', constants.LINES], (/* data for constructor */) => {
+//   // Construct shape primitives for Vertex with LINES shapeKind
+//
+//   for (i = 0; i + 1 < numVerts; i += 2) {
+//     v = vertices[i];
+//     if (this._doStroke) {
+//       this._pInst.stroke(vertices[i + 1][6]);
+//     }
+//     this._pInst.line(v[0], v[1], vertices[i + 1][0], vertices[i + 1][1]);
+//   }
+// });
+//
+// // Vertices with TRIANGLES shapeKind
+// primitiveShapeCreators.set(['vertex', constants.TRIANGLES], (/* data for constructor */) => {
+//   // Construct shape primitives for Vertex with TRIANGLES shapeKind
+//
+//   for (i = 0; i + 2 < numVerts; i += 3) {
+//     v = vertices[i];
+//     if (!this._clipping) this.drawingContext.beginPath();
+//     this.drawingContext.moveTo(v[0], v[1]);
+//     this.drawingContext.lineTo(vertices[i + 1][0], vertices[i + 1][1]);
+//     this.drawingContext.lineTo(vertices[i + 2][0], vertices[i + 2][1]);
+//     this.drawingContext.closePath();
+//     if (!this._clipping && this._doFill) {
+//       this._pInst.fill(vertices[i + 2][5]);
+//       this.drawingContext.fill();
+//     }
+//     if (!this._clipping && this._doStroke) {
+//       this._pInst.stroke(vertices[i + 2][6]);
+//       this.drawingContext.stroke();
+//     }
+//   }
+// });
+//
+// // Vertices with TRIANGLE_STRIP shapeKind
+// primitiveShapeCreators.set(['vertex', constants.TRIANGLE_STRIP], (/* data for constructor */) => {
+//   // Construct shape primitives for Vertex with TRIANGLE_STRIP shapeKind
+//
+//   for (i = 0; i + 1 < numVerts; i++) {
+//     v = vertices[i];
+//     if (!this._clipping) this.drawingContext.beginPath();
+//     this.drawingContext.moveTo(vertices[i + 1][0], vertices[i + 1][1]);
+//     this.drawingContext.lineTo(v[0], v[1]);
+//     if (!this._clipping && this._doStroke) {
+//       this._pInst.stroke(vertices[i + 1][6]);
+//     }
+//     if (!this._clipping && this._doFill) {
+//       this._pInst.fill(vertices[i + 1][5]);
+//     }
+//     if (i + 2 < numVerts) {
+//       this.drawingContext.lineTo(vertices[i + 2][0], vertices[i + 2][1]);
+//       if (!this._clipping && this._doStroke) {
+//         this._pInst.stroke(vertices[i + 2][6]);
+//       }
+//       if (!this._clipping && this._doFill) {
+//         this._pInst.fill(vertices[i + 2][5]);
+//       }
+//     }
+//     this._doFillStrokeClose(closeShape);
+//   }
+// });
+//
+// // Vertices with TRIANGLE_FAN shapeKind
+// primitiveShapeCreators.set(['vertex', constants.TRIANGLE_FAN], (/* data for constructor */) => {
+//   // Construct shape primitives for Vertex with TRIANGLE_FAN shapeKind
+//
+//   if (numVerts > 2) {
+//     // For performance reasons, try to batch as many of the
+//     // fill and stroke calls as possible.
+//     if (!this._clipping) this.drawingContext.beginPath();
+//     for (i = 2; i < numVerts; i++) {
+//       v = vertices[i];
+//       this.drawingContext.moveTo(vertices[0][0], vertices[0][1]);
+//       this.drawingContext.lineTo(vertices[i - 1][0], vertices[i - 1][1]);
+//       this.drawingContext.lineTo(v[0], v[1]);
+//       this.drawingContext.lineTo(vertices[0][0], vertices[0][1]);
+//       // If the next colour is going to be different, stroke / fill now
+//       if (i < numVerts - 1) {
+//         if (
+//           (this._doFill && v[5] !== vertices[i + 1][5]) ||
+//           (this._doStroke && v[6] !== vertices[i + 1][6])
+//         ) {
+//           if (!this._clipping && this._doFill) {
+//             this._pInst.fill(v[5]);
+//             this.drawingContext.fill();
+//             this._pInst.fill(vertices[i + 1][5]);
+//           }
+//           if (!this._clipping && this._doStroke) {
+//             this._pInst.stroke(v[6]);
+//             this.drawingContext.stroke();
+//             this._pInst.stroke(vertices[i + 1][6]);
+//           }
+//           this.drawingContext.closePath();
+//           if (!this._clipping) this.drawingContext.beginPath(); // Begin the next one
+//         }
+//       }
+//     }
+//     this._doFillStrokeClose(closeShape);
+//   }
+// });
+//
+// // Vertices with QUADS shapeKind
+// primitiveShapeCreators.set(['vertex', constants.QUADS], (/* data for constructor */) => {
+//   // Construct shape primitives for Vertex with QUADS shapeKind
+//   for (i = 0; i + 3 < numVerts; i += 4) {
+//     v = vertices[i];
+//     if (!this._clipping) this.drawingContext.beginPath();
+//     this.drawingContext.moveTo(v[0], v[1]);
+//     for (j = 1; j < 4; j++) {
+//       this.drawingContext.lineTo(vertices[i + j][0], vertices[i + j][1]);
+//     }
+//     this.drawingContext.lineTo(v[0], v[1]);
+//     if (!this._clipping && this._doFill) {
+//       this._pInst.fill(vertices[i + 3][5]);
+//     }
+//     if (!this._clipping && this._doStroke) {
+//       this._pInst.stroke(vertices[i + 3][6]);
+//     }
+//     this._doFillStrokeClose(closeShape);
+//   }
+// });
+//
+// // Vertices with QUAD_STRIP shapeKind
+// primitiveShapeCreators.set(['vertex', constants.QUAD_STRIP], (/* data for constructor */) => {
+//   // Construct shape primitives for Vertex with QUAD_STRIP shapeKind
+//
+//   if (numVerts > 3) {
+//     for (i = 0; i + 1 < numVerts; i += 2) {
+//       v = vertices[i];
+//       if (!this._clipping) this.drawingContext.beginPath();
+//       if (i + 3 < numVerts) {
+//         this.drawingContext.moveTo(
+//           vertices[i + 2][0], vertices[i + 2][1]);
+//         this.drawingContext.lineTo(v[0], v[1]);
+//         this.drawingContext.lineTo(
+//           vertices[i + 1][0], vertices[i + 1][1]);
+//         this.drawingContext.lineTo(
+//           vertices[i + 3][0], vertices[i + 3][1]);
+//         if (!this._clipping && this._doFill) {
+//           this._pInst.fill(vertices[i + 3][5]);
+//         }
+//         if (!this._clipping && this._doStroke) {
+//           this._pInst.stroke(vertices[i + 3][6]);
+//         }
+//       } else {
+//         this.drawingContext.moveTo(v[0], v[1]);
+//         this.drawingContext.lineTo(
+//           vertices[i + 1][0], vertices[i + 1][1]);
+//       }
+//       this._doFillStrokeClose(closeShape);
+//     }
+//   }
+// });
+
+// primitiveShapeCreators.set(generateKey('vertex', null), (x, y, z, u, v, renderer) => {
+// Construct shape primitives for Vertex with QUAD_STRIP shapeKind
+primitiveShapeCreators.set(generateKey('vertex', null), vert => {
+
+  // return new VertexSegment(x, y, z, u, v, renderer);
+  return new VertexSegment(vert);
+
+  // let v;
+  // const numVerts = vertices.length;
+  // if (!this._clipping) this.drawingContext.beginPath();
+  // this.drawingContext.moveTo(vertices[0][0], vertices[0][1]);
+  // for (i = 1; i < numVerts; i++) {
+  //   v = vertices[i];
+  //   if (v.isVert) {
+  //     if (v.moveTo) {
+  //       if (closeShape) this.drawingContext.closePath();
+  //       this.drawingContext.moveTo(v[0], v[1]);
+  //     } else {
+  //       this.drawingContext.lineTo(v[0], v[1]);
+  //     }
+  //   }
+  // }
+  // this._doFillStrokeClose(closeShape);
+});
 
 /**
  * Use the <a href="#/p5/beginContour">beginContour()</a> and
@@ -58,11 +389,13 @@ let isFirstContour = true;
  * @alt
  * white rect and smaller grey rect with red outlines in center of canvas.
  */
-p5.prototype.beginContour = function() {
+p5.prototype.beginContour = function(sk = shapeKind) {
   if (this._renderer.isP3D) {
     this._renderer.beginContour();
   } else {
-    contourVertices = [];
+
+    shape.addContour(new Contour(sk));
+    // contourVertices = [];
     isContour = true;
   }
   return this;
@@ -284,12 +617,21 @@ p5.prototype.beginShape = function(kind) {
       kind === constants.QUAD_STRIP
     ) {
       shapeKind = kind;
+      shape = new Shape(dimension.two, shapeKind);
+      let c = new Contour(shapeKind);
+      shape.addContour(c);
+
+      // new Shape();
     } else {
+
       shapeKind = null;
+      shape = new Shape(dimension.two, shapeKind);
+      let c = new Contour(shapeKind);
+      shape.addContour(c);
     }
 
-    vertices = [];
-    contourVertices = [];
+    // vertices = [];
+    // contourVertices = [];
   }
   return this;
 };
@@ -394,23 +736,34 @@ p5.prototype.bezierVertex = function(...args) {
   if (this._renderer.isP3D) {
     this._renderer.bezierVertex(...args);
   } else {
-    if (vertices.length === 0) {
+
+
+    let allC = shape.contourss;
+    let currentContour = allC[allC.length - 1];
+    // same here ?
+    if (currentContour.primitivess.length === 0) {
       p5._friendlyError(
         'vertex() must be used once before calling bezierVertex()',
         'bezierVertex'
       );
     } else {
-      isBezier = true;
       const vert = [];
       for (let i = 0; i < args.length; i++) {
         vert[i] = args[i];
       }
-      vert.isVert = false;
-      if (isContour) {
-        contourVertices.push(vert);
-      } else {
-        vertices.push(vert);
-      }
+
+      let keyObject = generateKey('bezierVertex', shapeKind);
+
+
+      let primitiveShapeCreator = primitiveShapeCreators.get(keyObject);
+      // console.log(primitiveShapeCreator);
+
+      let q = primitiveShapeCreator(vert);
+      // console.log(v);
+
+
+
+      currentContour.addPrimitive(q);
     }
   }
   return this;
@@ -520,7 +873,43 @@ p5.prototype.curveVertex = function(...args) {
     this._renderer.curveVertex(...args);
   } else {
     isCurve = true;
-    this.vertex(args[0], args[1]);
+
+
+
+    let allC = shape.contourss;
+    let currentContour = allC[allC.length - 1];
+    let allP = currentContour.primitivess;
+    let lastSegment = allP[allP.length - 1];
+
+
+
+    if (currentContour.primitivess.length === 0 ||
+      lastSegment.type === undefined) {
+      // first curveVertex
+      // let cs = new ContourSegment2D();
+
+      console.log('primitiveShapeCreators', primitiveShapeCreators);
+      let keyObject = generateKey('curveVertex', shapeKind);
+
+
+      let primitiveShapeCreator = primitiveShapeCreators.get(keyObject);
+      // console.log(primitiveShapeCreator);
+
+      let cv = primitiveShapeCreator(args[0], args[1]);
+      // console.log(v);
+
+
+
+      currentContour.addPrimitive(cv);
+
+
+    } else {
+      lastSegment.data.push(args[0], args[1]);
+    }
+
+
+
+    // this.vertex(args[0], args[1]);
   }
   return this;
 };
@@ -571,20 +960,39 @@ p5.prototype.endContour = function() {
     return this;
   }
 
-  const vert = contourVertices[0].slice(); // copy all data
-  vert.isVert = contourVertices[0].isVert;
-  vert.moveTo = false;
-  contourVertices.push(vert);
+
+  let allC = shape.contourss;
+  let currentContour = allC[allC.length - 1];
+
+  let p = currentContour.firstPrimitive;
+  // const vert = contourVertices[0].slice(); // copy all data
+  // vert.isVert = contourVertices[0].isVert;
+  // vert.moveTo = false;
+  let vertex = p.getVertices;
+
+  let keyObject = generateKey('vertex', shapeKind);
+
+
+  let primitiveShapeCreator = primitiveShapeCreators.get(keyObject);
+  console.log(primitiveShapeCreator);
+
+  let v = primitiveShapeCreator(vertex);
+  console.log(v);
+  currentContour.addPrimitive(v);
+
+  // contourVertices.push(vert);
 
   // prevent stray lines with multiple contours
   if (isFirstContour) {
-    vertices.push(vertices[0]);
+    // pushing first contour's first segment to the end
+    shape.contourss[0].addPrimitive(shape.contourss[0].firstPrimitive);
+    // vertices.push(vertices[0]);
     isFirstContour = false;
   }
 
-  for (let i = 0; i < contourVertices.length; i++) {
-    vertices.push(contourVertices[i]);
-  }
+  // for (let i = 0; i < contourVertices.length; i++) {
+  //   vertices.push(contourVertices[i]);
+  // }
   return this;
 };
 
@@ -714,6 +1122,8 @@ p5.prototype.endShape = function(mode, count = 1) {
     count = 1;
   }
 
+  closeShape = mode === constants.CLOSE;
+
   if (this._renderer.isP3D) {
     this._renderer.endShape(
       mode,
@@ -728,7 +1138,9 @@ p5.prototype.endShape = function(mode, count = 1) {
     if (count !== 1) {
       console.log('🌸 p5.js says: Instancing is only supported in WebGL2 mode');
     }
-    if (vertices.length === 0) {
+    let allC = shape.contourss;
+    let currentContour = allC[allC.length - 1];
+    if (currentContour.primitivess.length === 0) {
       return this;
     }
     if (!this._renderer._doStroke && !this._renderer._doFill) {
@@ -739,17 +1151,37 @@ p5.prototype.endShape = function(mode, count = 1) {
 
     // if the shape is closed, the first element is also the last element
     if (closeShape && !isContour) {
-      vertices.push(vertices[0]);
+      console.log('currentContour', currentContour);
+      currentContour.addPrimitive(currentContour.firstPrimitive);
     }
+
+    // if (closeShape && !isContour) {
+    //   vertices.push(vertices[0]);
+    // }
+
+
+    // let verti = [];
+    // // const converter = new PrimitiveToContext2DConverter(0); // Create the converter
+    // shape.contours.forEach(contour => {
+    //   contour.primitives.forEach(primitive => {
+    //     // primitive.accept(converter, this.drawingContext); // Visit each primitive with the converter
+    //     let v = primitive.getVertices();
+    //     verti.push(v);
+    //   });
+    // });
+    //
+    // console.log('verti', verti);
 
     this._renderer.endShape(
       mode,
-      vertices,
+      // verti,
       isCurve,
       isBezier,
       isQuadratic,
       isContour,
-      shapeKind
+      shapeKind,
+      shape,
+      closeShape
     );
 
     // Reset some settings
@@ -759,11 +1191,15 @@ p5.prototype.endShape = function(mode, count = 1) {
     isContour = false;
     isFirstContour = true;
 
+    shape.contourss.length = 0;
+
     // If the shape is closed, the first element was added as last element.
     // We must remove it again to prevent the list of vertices from growing
     // over successive calls to endShape(CLOSE)
     if (closeShape) {
-      vertices.pop();
+      console.log('currentContour', currentContour);
+
+      currentContour.primitivess.pop();
     }
   }
   return this;
@@ -894,29 +1330,53 @@ p5.prototype.quadraticVertex = function(...args) {
   } else {
     //if we're drawing a contour, put the points into an
     // array for inside drawing
-    if (this._contourInited) {
-      const pt = {};
-      pt.x = args[0];
-      pt.y = args[1];
-      pt.x3 = args[2];
-      pt.y3 = args[3];
-      pt.type = constants.QUADRATIC;
-      this._contourVertices.push(pt);
+    // if (this._contourInited) {
+    //   const pt = {};
+    //   pt.x = args[0];
+    //   pt.y = args[1];
+    //   pt.x3 = args[2];
+    //   pt.y3 = args[3];
+    //   pt.type = constants.QUADRATIC;
+    //   this._contourVertices.push(pt);
+    //
+    //   return this;
+    // }
+    let allC = shape.contourss;
+    let currentContour = allC[allC.length - 1];
+    console.log('currentContour in quadVertex', currentContour);
+    console.log('currentContour.primitivess', currentContour.primitivess);
+    console.log('currentContour.primitivess.length', currentContour.primitivess.length);
 
-      return this;
-    }
-    if (vertices.length > 0) {
+    // does that make sense to add a check for vertex() more specifically ?
+    if (currentContour.primitivess.length > 0) {
       isQuadratic = true;
       const vert = [];
       for (let i = 0; i < args.length; i++) {
         vert[i] = args[i];
       }
       vert.isVert = false;
-      if (isContour) {
-        contourVertices.push(vert);
-      } else {
-        vertices.push(vert);
-      }
+
+
+      let keyObject = generateKey('quadraticVertex', shapeKind);
+
+
+      let primitiveShapeCreator = primitiveShapeCreators.get(keyObject);
+      // console.log(primitiveShapeCreator);
+
+      let q = primitiveShapeCreator(vert);
+      // console.log(v);
+
+
+
+      currentContour.addPrimitive(q);
+
+      console.log('currentContour after adding q', currentContour);
+
+      // if (isContour) {
+      //   contourVertices.push(vert);
+      // } else {
+      //   vertices.push(vert);
+      // }
     } else {
       p5._friendlyError(
         'vertex() must be used once before calling quadraticVertex()',
@@ -1078,6 +1538,9 @@ p5.prototype.quadraticVertex = function(...args) {
 p5.prototype.vertex = function(x, y, moveTo, u, v) {
   if (this._renderer.isP3D) {
     this._renderer.vertex(...arguments);
+
+
+
   } else {
     const vert = [];
     vert.isVert = true;
@@ -1092,14 +1555,55 @@ p5.prototype.vertex = function(x, y, moveTo, u, v) {
     if (moveTo) {
       vert.moveTo = moveTo;
     }
-    if (isContour) {
-      if (contourVertices.length === 0) {
-        vert.moveTo = true;
-      }
-      contourVertices.push(vert);
-    } else {
-      vertices.push(vert);
+    let v;
+
+    let allC = shape.contourss;
+    let currentContour = allC[allC.length - 1];
+    console.log('currentContour', currentContour);
+    console.log('currentContour.getkind', currentContour.getkind);
+    console.log('currentContour.kind', currentContour.kind);
+
+    let keyObject = generateKey('vertex', currentContour.getkind);
+
+
+    let primitiveShapeCreator = primitiveShapeCreators.get(keyObject);
+    // console.log(primitiveShapeCreator);
+
+    if (currentContour.getkind === constants.POINTS) {
+      v = primitiveShapeCreator(vert);
     }
+    console.log(v);
+
+    // if(shape.isContoursEmpty()) {
+    //   console.log('inside contour');
+    //   // first contour & first vertex are added
+    //
+    //   console.log('getContours', shape.contourss);
+    // } else {
+    // }
+    console.log('getContours2', shape.contourss);
+    console.log('contours', allC[allC.length - 1]);
+
+    // let currentContour = shape.currentContour;
+    // console.log('currentContour', shape.contourss);
+
+    // let currentContour = shape.contourss[shape.contourss.length - 1];
+
+    console.log('currentContour', currentContour);
+    currentContour.addPrimitive(v);
+
+    // v.addToShape();
+
+
+    // for beginContour
+    // if (isContour) {
+    //   if (contourVertices.length === 0) {
+    //     vert.moveTo = true;
+    //   }
+    //   contourVertices.push(vert);
+    // } else {
+    //   vertices.push(vert);
+    // }
   }
   return this;
 };
